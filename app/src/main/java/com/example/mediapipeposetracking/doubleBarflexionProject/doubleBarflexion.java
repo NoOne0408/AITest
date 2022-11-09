@@ -78,7 +78,7 @@ public class doubleBarflexion {
         count=0;
         //用于判断是不是达到准备动作要求
         isReady=false;
-
+        PoseTest.keyMessage=" " ;
 
     }
 
@@ -112,45 +112,49 @@ public class doubleBarflexion {
     }
 
     public void startDetection(){
-        //如果没准备好，那就不断尝试ready的姿态,如果准备好了，那就获取初始状态
-        if (!isReady){
-            isReady=poseTest.isReady(LShoulder,LWrist,LElbow,LAnkle,
-                    RShoulder,RWrist,RElbow,RAnkle);
-            if (isReady){
-                poseTest.initFrame(LWrist, LElbow, LShoulder, LAnkle, LHeel,LIndex,
-                        RWrist, RElbow, RShoulder, RAnkle,RHeel,RIndex);
-            }
-
-            PoseTest.keyMessage="请调整姿势！" ;
+        if((LShoulder.rate<0.6&&RShoulder.rate<0.6)||(LWrist.rate<0.6&&RWrist.rate<0.6)||(LElbow.rate<0.6&&RElbow.rate<0.6)||(LHeel.rate<0.6&&RHeel.rate<0.6)){
+            PoseTest.keyMessage="人体拍摄不全" ;
+            MainActivity.timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    //使用handler发送消息
+                    Message message = new Message();
+                    MainActivity.mHandler.sendMessage(message);
+                }
+            },1000,1000);//每 1s执行一次
         }
-
-
         else{
+            //如果没准备好，那就不断尝试ready的姿态,如果准备好了，那就获取初始状态
+
+            if (!isReady){
+                isReady=poseTest.isReady(LShoulder,LWrist,LElbow,LAnkle,
+                        RShoulder,RWrist,RElbow,RAnkle);
+                if (isReady){
+                    poseTest.initFrame(LWrist, LElbow, LShoulder, LAnkle, LHeel,LIndex,
+                            RWrist, RElbow, RShoulder, RAnkle,RHeel,RIndex);
+                }
+
+                PoseTest.keyMessage="请调整姿势！" ;
+            }
+
+
+            else{
 //            PoseTest.keyMessage="已做好准备！" ;
-            poseJudge();
-            n++;
+                poseJudge();
+                n++;
+            }
+
+
+            MainActivity.timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    //使用handler发送消息
+                    Message message = new Message();
+                    MainActivity.mHandler.sendMessage(message);
+                }
+            },1000,1000);//每 1s执行一次
         }
 
-
-        //每隔一秒使用 handler发送一下消息,也就是每隔一秒执行一次,一直重复执行
-
-//        DoubleBarflexionActivity.timer.schedule(new TimerTask() {
-//            @Override
-//            public void run() {
-//                //使用handler发送消息
-//                Message message = new Message();
-//                DoubleBarflexionActivity.mHandler.sendMessage(message);
-//            }
-//        },1000,1000);//每 1s执行一次
-
-        MainActivity.timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                //使用handler发送消息
-                Message message = new Message();
-                MainActivity.mHandler.sendMessage(message);
-            }
-        },1000,1000);//每 1s执行一次
 
     }
 
@@ -165,7 +169,7 @@ public class doubleBarflexion {
 
         if (bend_leg_flag){
             System.out.println("请伸直双腿！");
-            PoseTest.keyMessage="请伸直双腿！";
+//            PoseTest.keyMessage="请伸直双腿！";
             //这里有一个计数环节别忘了
             bend_leg_count+=1;
         }
@@ -173,7 +177,7 @@ public class doubleBarflexion {
 
         if(bow_flag){
             System.out.println("请挺直躯干！");
-            PoseTest.keyMessage="请挺直躯干！";
+//            PoseTest.keyMessage="请挺直躯干！";
             bow_count+=1;
         }
         else System.out.println("躯干直");
@@ -190,6 +194,7 @@ public class doubleBarflexion {
             start_flag=true;
             //获取当前时间戳
             start_time= System.currentTimeMillis();
+            System.out.println("当前时间：  "+start_time);
             bend_leg_flag=false;
             bow_flag=false;
             move_feet_flag=false;
@@ -205,8 +210,19 @@ public class doubleBarflexion {
         boolean now_correct=!bend_leg_flag && !bow_flag;
 //      boolean now_correct=true;
 
-        if(now_correct==false){
-            PoseTest.keyMessage="动作不规范,本次不计数";
+        if(now_correct==false && start_flag == true){
+            //腿部和身体都弯曲
+            if(bend_leg_flag && bow_flag){
+                PoseTest.keyMessage="屈髋且屈膝,请回到准备状态";
+            }
+            //腿部弯曲
+            else if(bend_leg_flag){
+                PoseTest.keyMessage="屈膝或蹬腿,请回到准备状态";
+            }
+            //腿部弯曲
+            else if(bow_flag){
+                PoseTest.keyMessage="屈髋,请回到准备状态";
+            }
             start_flag=false;
             return;
         }
@@ -216,7 +232,12 @@ public class doubleBarflexion {
 //
         if (condition_satisfy){
             System.out.println("满足要求");
-            PoseTest.keyMessage="达到计数状态！";
+//            if(start_flag==true){
+//                PoseTest.keyMessage="达到计数高度";
+//            }
+//            if(start_flag==false){
+//                PoseTest.keyMessage="请回到准备状态";
+//            }
             count_flag = true;
             count_time = System.currentTimeMillis();
 
@@ -225,14 +246,14 @@ public class doubleBarflexion {
 
 
         //计数时间点是否准确
-        boolean finish_time=start_flag && count_flag && start_time<count_time;
+        boolean finish_time=start_flag && count_flag && (count_time-start_time)>400;//修改为，结束时间减去开始时间大于400毫秒
 
         //判断是否计数,满足上述四个条件
 
         if(condition_satisfy&&finish_correct_flag&&now_correct&&finish_time){
             count+=1;
             System.out.println("计数+1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  当前个数："+count);
-            PoseTest.keyMessage="计数+1 ！";
+            PoseTest.keyMessage="计数+1 ，请回到准备状态";
             start_flag=false;
             count_flag=false;
             condition_satisfy=false;
